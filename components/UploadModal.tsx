@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Album, User, MediaItem, Role } from '../types';
-import { addMediaItems, getAlbumsForUser, createAlbum } from '../services/api';
+import { addMediaItems, getAllVisibleAlbums, createAlbum } from '../services/api';
 import { XMarkIcon, CloudArrowUpIcon } from './icons/Icons';
 
 interface UploadModalProps {
@@ -33,8 +33,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ currentUser, onClose, onUploa
   const [newAlbumError, setNewAlbumError] = useState('');
   
   useEffect(() => {
-    getAlbumsForUser(currentUser.id, currentUser)
-      .then(({ albums }) => {
+    getAllVisibleAlbums(currentUser)
+      .then((albums) => {
         setUserAlbums(albums);
         if (albums.length > 0) {
           setSelectedAlbumId(albums[0].id);
@@ -159,7 +159,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ currentUser, onClose, onUploa
                         <select value={selectedAlbumId} onChange={(e) => setSelectedAlbumId(e.target.value)} className="block w-full text-sm border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 focus:ring-brand-500 focus:border-brand-500">
                             {userAlbums.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
                         </select>
-                    ) : <p className="text-sm text-gray-500">Você não possui álbuns.</p>}
+                    ) : <p className="text-sm text-gray-500">Nenhum álbum disponível.</p>}
                   </div>
               )}
                <label className="flex items-center space-x-3 p-3 border dark:border-gray-700 rounded-lg">

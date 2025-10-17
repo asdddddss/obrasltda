@@ -1,233 +1,301 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MediaItem, User, Story, Role, Album } from '../types';
-import { useAuth } from '../contexts/AuthContext';
-import { getMediaForFeed, getMockUsers, getStories, getUser, getAllVisibleAlbums } from '../services/api';
 import { Link } from 'react-router-dom';
+import { MediaItem, Story, User, Album, Role } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { getMediaForFeed, getStories, getMockUsers, getAllVisibleAlbums } from '../services/api';
+
+// Components
 import StoryReel from '../components/StoryReel';
 import StoryViewer from '../components/StoryViewer';
 import PhotoModal from '../components/PhotoModal';
-import { FunnelIcon, ChevronUpIcon, ChevronDownIcon } from '../components/icons/Icons';
+import { FunnelIcon, ChevronDownIcon, ChevronUpIcon } from '../components/icons/Icons';
 
 interface HomePageProps {
   dataVersion: number;
   setEditingMediaItem: (mediaItem: MediaItem | null) => void;
 }
 
-const FeedItem: React.FC<{ 
-  media: MediaItem; 
-  author?: User; 
-  onMediaClick: (media: MediaItem, mediaList: MediaItem[]) => void;
-  mediaList: MediaItem[];
-}> = ({ media, author, onMediaClick, mediaList }) => {
-  if (!author) return null;
+interface FilterPillProps {
+  label: string;
+  isSelected: boolean;
+  onClick: () => void;
+}
 
-  return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden">
-      <div className="p-4 flex items-center space-x-3">
-        <Link to={`/profile/${author.id}`}>
-          <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" />
-        </Link>
-        <div>
-          <p className="font-semibold">
-            <Link to={`/profile/${author.id}`} className="hover:underline">
-              {author.name}
-            </Link>
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(media.createdAt).toLocaleString()}</p>
-        </div>
-      </div>
-
-      <div className="cursor-pointer bg-black flex items-center justify-center" onClick={() => onMediaClick(media, mediaList)}>
-        {media.type === 'image' ? (
-          <img src={media.url} alt={media.description} className="w-full h-auto object-contain max-h-[75vh]" />
-        ) : (
-          <video src={media.url} controls className="w-full h-auto max-h-[75vh]" />
-        )}
-      </div>
-
-      {(media.description || (media.taggedUsers && media.taggedUsers.length > 0)) && (
-        <div className="p-4">
-          <p className="text-gray-800 dark:text-gray-200">{media.description}</p>
-        </div>
-      )}
-    </div>
-  );
-};
+const FilterPill: React.FC<FilterPillProps> = ({ label, isSelected, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`px-3 py-1.5 text-sm font-medium rounded-full border transition-colors duration-200 ${
+      isSelected
+        ? 'bg-brand-500 border-brand-500 text-white'
+        : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200'
+    }`}
+  >
+    {label}
+  </button>
+);
 
 
 const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem }) => {
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
+  const { user: currentUser } = useAuth();
+  const [media, setMedia] = useState<MediaItem[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
-  const [albums, setAlbums] = useState<Album[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [albums, setAlbums] = useState<Album[]>([]); // For filters
+  const [loading, setLoading] = useState(true);
+  
+  // Story viewer state
+  const [viewingUserStories, setViewingUserStories] = useState<User | null>(null);
+
+  // Photo modal state
+  const [selectedMediaItem, setSelectedMediaItem] = useState<MediaItem | null>(null);
   
   // Filter state
-  const [filtersVisible, setFiltersVisible] = useState(false);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [selectedAlbumIds, setSelectedAlbumIds] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [openFilterSection, setOpenFilterSection] = useState<'pessoas' | 'albuns' | null>(null);
+  const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
+  const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
 
-  // Story Viewer State
-  const [viewingStoriesForUser, setViewingStoriesForUser] = useState<User | null>(null);
-  
-  // Photo Viewer Modal State
-  const [selectedMediaItem, setSelectedMediaItem] = useState<MediaItem | null>(null);
-  const [selectedMediaList, setSelectedMediaList] = useState<MediaItem[]>([]);
-
-  const { user } = useAuth();
-
-  const userMap = useMemo(() => {
-    const map = new Map<string, User>();
-    users.forEach(u => map.set(u.id, u));
-    return map;
-  }, [users]);
-
-  const storiesByUser = useMemo(() => {
-    const grouped: { [key: string]: Story[] } = {};
-    stories.forEach(story => {
-      if (!grouped[story.userId]) {
-        grouped[story.userId] = [];
-      }
-      grouped[story.userId].push(story);
-    });
-    return grouped;
-  }, [stories]);
 
   useEffect(() => {
     const fetchData = async () => {
-        setLoading(true);
-        const [feedMedia, allUsers, allStories, allAlbums] = await Promise.all([
-            getMediaForFeed(user),
-            getMockUsers(),
-            getStories(),
-            getAllVisibleAlbums(user)
+      setLoading(true);
+      try {
+        const [mediaData, storiesData, usersData, albumsData] = await Promise.all([
+          getMediaForFeed(currentUser),
+          getStories(),
+          getMockUsers(),
+          getAllVisibleAlbums(currentUser) // Fetch albums for filters
         ]);
-        setMediaItems(feedMedia.filter(item => item.type === 'image')); // Filter for photos only
-        setUsers(allUsers);
-        setStories(allStories);
-        setAlbums(allAlbums);
+        setMedia(mediaData);
+        setStories(storiesData);
+        setUsers(usersData);
+        setAlbums(albumsData);
+      } catch (error) {
+        console.error("Failed to fetch feed data:", error);
+      } finally {
         setLoading(false);
+      }
     };
+
     fetchData();
-  }, [user, dataVersion]);
-
-  const toggleFilterUser = (userId: string) => {
-    setSelectedUserIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
-  }
+  }, [currentUser, dataVersion]);
   
-  const toggleFilterAlbum = (albumId: string) => {
-    setSelectedAlbumIds(prev => prev.includes(albumId) ? prev.filter(id => id !== albumId) : [...prev, albumId]);
-  }
-
-  const filteredMediaItems = useMemo(() => {
-    if (selectedUserIds.length === 0 && selectedAlbumIds.length === 0) {
-      return mediaItems;
+  const filteredMedia = useMemo(() => {
+    if (selectedPeople.length === 0 && selectedAlbums.length === 0) {
+      return media;
     }
-    return mediaItems.filter(item => {
-      const userMatch = selectedUserIds.length > 0 && selectedUserIds.includes(item.uploadedBy);
-      const albumMatch = selectedAlbumIds.length > 0 && item.albumId && selectedAlbumIds.includes(item.albumId);
-      return userMatch || albumMatch;
-    });
-  }, [mediaItems, selectedUserIds, selectedAlbumIds]);
-  
-  const handleUserStoryClick = async (userId: string) => {
-    const userToView = await getUser(userId);
-    setViewingStoriesForUser(userToView);
-  }
 
-  const handleMediaClick = (mediaItem: MediaItem, mediaList: MediaItem[]) => {
-    setSelectedMediaList(mediaList);
-    setSelectedMediaItem(mediaItem);
+    return media.filter(item => {
+      const matchPerson = selectedPeople.length > 0 && selectedPeople.includes(item.uploadedBy);
+      const matchAlbum = selectedAlbums.length > 0 && item.albumId && selectedAlbums.includes(item.albumId);
+      
+      if (selectedPeople.length > 0 && selectedAlbums.length > 0) {
+        return matchPerson || matchAlbum;
+      }
+      
+      return matchPerson || matchAlbum;
+    });
+  }, [media, selectedPeople, selectedAlbums]);
+
+  const toggleFilterSection = (section: 'pessoas' | 'albuns') => {
+    setOpenFilterSection(prev => (prev === section ? null : section));
+  };
+
+  const handlePersonSelect = (userId: string) => {
+    setSelectedPeople(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
   };
   
+  const handleAlbumSelect = (albumId: string) => {
+    setSelectedAlbums(prev =>
+      prev.includes(albumId) ? prev.filter(id => id !== albumId) : [...prev, albumId]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedPeople([]);
+    setSelectedAlbums([]);
+  };
+
+  const storiesByUser = useMemo(() => {
+    return stories.reduce((acc, story) => {
+      if (!acc[story.userId]) {
+        acc[story.userId] = [];
+      }
+      acc[story.userId].push(story);
+      return acc;
+    }, {} as { [key: string]: Story[] });
+  }, [stories]);
+  
+  const userMap = useMemo(() => {
+      const map = new Map<string, User>();
+      users.forEach(u => map.set(u.id, u));
+      return map;
+  }, [users]);
+
+  const handleStoryClick = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setViewingUserStories(user);
+    }
+  };
+
+  const handleMediaClick = (mediaItem: MediaItem) => {
+    setSelectedMediaItem(mediaItem);
+  };
+
   const handleModalClose = () => {
     setSelectedMediaItem(null);
-    setSelectedMediaList([]);
+  };
+  
+  const handleEditClick = (mediaItem: MediaItem) => {
+    handleModalClose();
+    setEditingMediaItem(mediaItem);
   };
 
   const handleNextMedia = () => {
-    const currentIndex = selectedMediaList.findIndex(p => p.id === selectedMediaItem?.id);
-    if (currentIndex > -1 && currentIndex < selectedMediaList.length - 1) {
-      setSelectedMediaItem(selectedMediaList[currentIndex + 1]);
+    const currentIndex = filteredMedia.findIndex(p => p.id === selectedMediaItem?.id);
+    if (currentIndex > -1 && currentIndex < filteredMedia.length - 1) {
+      setSelectedMediaItem(filteredMedia[currentIndex + 1]);
     }
   };
 
   const handlePrevMedia = () => {
-    const currentIndex = selectedMediaList.findIndex(p => p.id === selectedMediaItem?.id);
+    const currentIndex = filteredMedia.findIndex(p => p.id === selectedMediaItem?.id);
     if (currentIndex > 0) {
-      setSelectedMediaItem(selectedMediaList[currentIndex - 1]);
+      setSelectedMediaItem(filteredMedia[currentIndex - 1]);
     }
   };
-  
-  const handleEditClick = (mediaItem: MediaItem) => {
-    handleModalClose(); // Close the photo view modal first
-    setEditingMediaItem(mediaItem);
-  };
+
+
+  if (loading) {
+    return <p className="text-center py-10">Carregando feed...</p>;
+  }
   
   return (
-    <div className="py-8">
-       <StoryReel storiesByUser={storiesByUser} users={users} onUserClick={handleUserStoryClick} />
+    <div>
+      <StoryReel storiesByUser={storiesByUser} users={users} onUserClick={handleStoryClick} />
       
-      <div className="flex justify-between items-center my-6">
-        <h1 className="text-3xl font-bold">Feed de Atividades</h1>
-        <button
-          onClick={() => setFiltersVisible(!filtersVisible)}
-          className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700"
-        >
-          <FunnelIcon className="h-5 w-5" />
-          <span>Filtros</span>
-          {filtersVisible ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-        </button>
+      <div className="my-4 p-4 bg-white dark:bg-gray-900 rounded-lg shadow-md">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 font-semibold"
+          >
+            <FunnelIcon className="h-5 w-5" />
+            <span>Filtros</span>
+          </button>
+          {(selectedPeople.length > 0 || selectedAlbums.length > 0) && (
+              <button
+                  onClick={clearFilters}
+                  className="text-sm text-brand-500 hover:underline"
+              >
+                  Limpar Filtros
+              </button>
+          )}
+        </div>
+
+        {isFilterOpen && (
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            {/* Pessoas Accordion */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleFilterSection('pessoas')}
+                className="w-full flex justify-between items-center p-3 font-semibold text-left hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+              >
+                <span>Pessoas</span>
+                {openFilterSection === 'pessoas' ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+              </button>
+              {openFilterSection === 'pessoas' && (
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto scrollbar-hide p-1">
+                    {users.filter(u => u.status === 'APPROVED').map(user => (
+                      <FilterPill
+                          key={user.id}
+                          label={user.name}
+                          isSelected={selectedPeople.includes(user.id)}
+                          onClick={() => handlePersonSelect(user.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Álbuns Accordion */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleFilterSection('albuns')}
+                className="w-full flex justify-between items-center p-3 font-semibold text-left hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+              >
+                <span>Álbuns</span>
+                {openFilterSection === 'albuns' ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+              </button>
+              {openFilterSection === 'albuns' && (
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto scrollbar-hide p-1">
+                    {albums.map(album => (
+                      <FilterPill
+                          key={album.id}
+                          label={album.title}
+                          isSelected={selectedAlbums.includes(album.id)}
+                          onClick={() => handleAlbumSelect(album.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {filtersVisible && (
-        <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="font-semibold mb-2">Pessoas</h3>
-            <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
-              {users.map(u => (
-                <label key={u.id} className="flex items-center space-x-3 cursor-pointer">
-                  <input type="checkbox" checked={selectedUserIds.includes(u.id)} onChange={() => toggleFilterUser(u.id)} className="h-4 w-4 rounded text-brand-600 border-gray-300 focus:ring-brand-500" />
-                  <span className="text-sm">{u.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-           <div>
-            <h3 className="font-semibold mb-2">Álbuns</h3>
-            <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
-              {albums.map(a => (
-                <label key={a.id} className="flex items-center space-x-3 cursor-pointer">
-                  <input type="checkbox" checked={selectedAlbumIds.includes(a.id)} onChange={() => toggleFilterAlbum(a.id)} className="h-4 w-4 rounded text-brand-600 border-gray-300 focus:ring-brand-500" />
-                  <span className="text-sm">{a.title}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="space-y-8">
+        {filteredMedia.map(item => {
+          const uploader = userMap.get(item.uploadedBy);
+          return (
+            <div key={item.id} className="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden">
+              <div className="p-4 flex items-center space-x-3">
+                {uploader ? (
+                    <Link to={`/profile/${uploader.id}`}>
+                        <img src={uploader.avatar} alt={uploader.name} className="h-10 w-10 rounded-full" />
+                    </Link>
+                ) : <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700" />}
+                <div>
+                  <p className="font-semibold">
+                    {uploader ? <Link to={`/profile/${uploader.id}`} className="hover:underline">{uploader.name}</Link> : 'Usuário desconhecido'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(item.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
 
-      {loading ? (
-        <p className="text-center text-gray-500 dark:text-gray-400 py-10">Carregando feed...</p>
-      ) : (
-        <div className="space-y-8">
-          {filteredMediaItems.length > 0 ? filteredMediaItems.map(item => (
-            <FeedItem 
-                key={item.id} 
-                media={item}
-                author={userMap.get(item.uploadedBy)}
-                onMediaClick={handleMediaClick}
-                mediaList={filteredMediaItems}
-            />
-          )) : <p className="text-center text-gray-500 dark:text-gray-400 py-10">Nenhuma publicação encontrada para os filtros selecionados.</p>}
-        </div>
-      )}
+              <div className="cursor-pointer bg-black flex items-center justify-center" onClick={() => handleMediaClick(item)}>
+                {item.type === 'image' ? (
+                  <img src={item.url} alt={item.description} className={`w-full max-h-[70vh] h-auto object-contain ${item.filter || ''}`} />
+                ) : (
+                  <video src={item.url} controls className="w-full max-h-[70vh] h-auto" />
+                )}
+              </div>
+              
+              <div className="p-4">
+                <p>{item.description}</p>
+              </div>
+            </div>
+          )
+        })}
+        {filteredMedia.length === 0 && (
+            <p className="text-center text-gray-500 py-10">
+                {media.length === 0 ? "O feed está vazio. Comece adicionando fotos ou vídeos!" : "Nenhum item corresponde aos filtros selecionados."}
+            </p>
+        )}
+      </div>
 
-      {viewingStoriesForUser && (
+      {viewingUserStories && (
         <StoryViewer 
-            user={viewingStoriesForUser}
-            stories={storiesByUser[viewingStoriesForUser.id] || []}
-            onClose={() => setViewingStoriesForUser(null)}
+          user={viewingUserStories}
+          stories={storiesByUser[viewingUserStories.id]}
+          onClose={() => setViewingUserStories(null)}
         />
       )}
 
@@ -235,9 +303,9 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
         <PhotoModal 
           photo={selectedMediaItem}
           onClose={handleModalClose}
-          onNext={selectedMediaList.findIndex(p => p.id === selectedMediaItem.id) < selectedMediaList.length - 1 ? handleNextMedia : undefined}
-          onPrev={selectedMediaList.findIndex(p => p.id === selectedMediaItem.id) > 0 ? handlePrevMedia : undefined}
-          onEditClick={user?.id === selectedMediaItem.uploadedBy || (user?.role && [Role.ADMIN, Role.ADMIN_MASTER].includes(user.role)) ? () => handleEditClick(selectedMediaItem) : undefined}
+          onNext={filteredMedia.findIndex(p => p.id === selectedMediaItem.id) < filteredMedia.length - 1 ? handleNextMedia : undefined}
+          onPrev={filteredMedia.findIndex(p => p.id === selectedMediaItem.id) > 0 ? handlePrevMedia : undefined}
+          onEditClick={currentUser?.id === selectedMediaItem.uploadedBy || (currentUser?.role && [Role.ADMIN, Role.ADMIN_MASTER].includes(currentUser.role)) ? () => handleEditClick(selectedMediaItem) : undefined}
         />
       )}
     </div>

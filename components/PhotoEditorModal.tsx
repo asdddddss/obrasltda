@@ -41,6 +41,7 @@ function getCroppedImg(image: HTMLImageElement, crop: Crop, canvas: HTMLCanvasEl
 const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ photo, onClose, onSave }) => {
   const [description, setDescription] = useState(photo.description);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCropping, setIsCropping] = useState(false);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<Crop>();
   const [editedDate, setEditedDate] = useState(photo.createdAt);
@@ -96,15 +97,15 @@ const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ photo, onClose, onS
       width,
       height
     );
+    // Set crop for later, but don't activate cropping mode
     setCrop(initialCrop);
-    setCompletedCrop(initialCrop);
   }
 
   const handleSave = async () => {
     setIsSaving(true);
     let finalUrl = photo.url;
 
-    if (completedCrop?.width && completedCrop?.height && imgRef.current && previewCanvasRef.current) {
+    if (isCropping && completedCrop?.width && completedCrop?.height && imgRef.current && previewCanvasRef.current) {
         getCroppedImg(imgRef.current, completedCrop, previewCanvasRef.current);
         finalUrl = previewCanvasRef.current.toDataURL('image/jpeg');
     }
@@ -155,24 +156,58 @@ const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ photo, onClose, onS
 
         <div className="p-6 flex-grow overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 bg-black flex items-center justify-center rounded-lg overflow-hidden">
-             <ReactCrop
-                crop={crop}
-                onChange={c => setCrop(c)}
-                onComplete={c => setCompletedCrop(c)}
-                className="max-h-[60vh]"
-             >
+            {isCropping ? (
+                 <ReactCrop
+                    crop={crop}
+                    onChange={c => setCrop(c)}
+                    onComplete={c => setCompletedCrop(c)}
+                    className="max-h-[60vh]"
+                 >
+                    <img 
+                        ref={imgRef}
+                        src={photo.url} 
+                        alt="Editor" 
+                        onLoad={onImageLoad}
+                        style={{ maxHeight: '60vh' }}
+                        crossOrigin="anonymous"
+                    />
+                </ReactCrop>
+            ) : (
                 <img 
                     ref={imgRef}
                     src={photo.url} 
                     alt="Editor" 
                     onLoad={onImageLoad}
                     style={{ maxHeight: '60vh' }}
-                    crossOrigin="anonymous" // Required for canvas processing
+                    crossOrigin="anonymous"
                 />
-            </ReactCrop>
+            )}
             <canvas ref={previewCanvasRef} className="hidden" />
           </div>
           <div className="space-y-4">
+             {isCropping ? (
+                <div className="p-3 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <p className="font-semibold text-sm">Modo de Corte Ativo</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Ajuste a seleção na imagem. O corte será aplicado ao salvar.</p>
+                    <button
+                        onClick={() => {
+                            setIsCropping(false);
+                            setCompletedCrop(undefined); // Reset completed crop to prevent accidental save
+                        }}
+                        className="text-sm font-medium text-red-600 hover:underline"
+                    >
+                        Cancelar Corte
+                    </button>
+                </div>
+            ) : (
+                <button 
+                    onClick={() => setIsCropping(true)}
+                    className="w-full text-center p-2 rounded-lg font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                    Cortar Foto
+                </button>
+            )}
+
             <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
                 <textarea

@@ -63,7 +63,7 @@ const AppLayout: React.FC = () => {
                     <Route 
                       path="/admin" 
                       element={
-                        user && user.role === Role.ADMIN_MASTER ? <AdminPage /> : <Navigate to="/" replace />
+                        user && user.role === Role.ADMIN_MASTER ? <AdminPage setEditingMediaItem={setEditingMediaItem} /> : <Navigate to="/" replace />
                       } 
                     />
 

@@ -385,3 +385,15 @@ export const deleteEvent = async (eventId: string, currentUser: User): Promise<b
     }
     return false;
 }
+
+// --- Admin Functions ---
+
+export const getAllAlbumsForAdmin = async (): Promise<Album[]> => {
+    await delay(100);
+    return [...albums].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const getAllAlbumlessMediaForAdmin = async (): Promise<MediaItem[]> => {
+    await delay(100);
+    return [...albumlessMedia].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
