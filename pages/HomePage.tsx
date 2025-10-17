@@ -184,7 +184,7 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
                 {/* Álbuns Column */}
                 <div>
                    <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">Álbuns</h3>
-                   <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                   <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
                     {albums.map(album => (
                       <label key={album.id} className="flex items-center space-x-3 cursor-pointer text-gray-700 dark:text-gray-300">
                         <input
