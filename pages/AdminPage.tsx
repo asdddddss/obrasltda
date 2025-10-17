@@ -41,6 +41,19 @@ const AdminPage: React.FC = () => {
         fetchUsers(); // Refresh the list
     };
 
+    const handleRoleChange = async (userToUpdate: User, newRole: Role) => {
+         if (!currentUser || currentUser.role !== Role.ADMIN_MASTER) {
+            alert("Você não tem permissão para realizar esta ação.");
+            return;
+        }
+         if (userToUpdate.id === currentUser.id && newRole !== Role.ADMIN_MASTER) {
+            alert("Você não pode rebaixar sua própria conta.");
+            return;
+        }
+        await updateUser(userToUpdate.id, { role: newRole });
+        fetchUsers();
+    };
+
     const openEditor = (user: User) => {
         setEditingUser(user);
         setIsEditorOpen(true);

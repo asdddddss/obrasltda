@@ -308,7 +308,7 @@ export const searchContent = async (query: string, currentUser: User | null): Pr
 // --- Events ---
 export const getEvents = async (): Promise<EventItem[]> => {
     await delay(200);
-    return [...events];
+    return [...events].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 };
 
 export const createEvent = async (eventData: Omit<EventItem, 'id' | 'albumId'> & { albumId?: string, createAlbumAutomatically?: boolean }, currentUser: User): Promise<EventItem> => {
