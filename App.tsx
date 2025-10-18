@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -55,7 +56,7 @@ const AppLayout: React.FC = () => {
 
         {/* Main scrollable content area */}
         <div className="lg:pl-64">
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20 md:pb-8">
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pb-8">
                 <Routes>
                     <Route path="/" element={<HomePage dataVersion={dataVersion} setEditingMediaItem={setEditingMediaItem} />} />
                     <Route path="/profile/:userId" element={<ProfilePage setEditingMediaItem={setEditingMediaItem} />} />
@@ -79,9 +80,7 @@ const AppLayout: React.FC = () => {
         </div>
         
         {/* Other Fixed Elements */}
-        {user && (
-            <BottomNavBar onAddClick={handleAddClick} />
-        )}
+        <BottomNavBar onAddClick={handleAddClick} />
         
         {user && location.pathname === '/' && (
             <FloatingActionButton

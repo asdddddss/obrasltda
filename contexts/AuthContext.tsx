@@ -12,12 +12,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+      console.error("Failed to parse user from localStorage", error);
+      return null;
+    }
+  });
 
   const login = useCallback(async (name: string, pass: string): Promise<boolean> => {
     try {
       const loggedInUser = await apiLogin(name, pass);
       if (loggedInUser) {
+        localStorage.setItem('user', JSON.stringify(loggedInUser));
         setUser(loggedInUser);
         return true;
       }
@@ -29,6 +38,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const logout = useCallback(() => {
+    localStorage.removeItem('user');
     setUser(null);
   }, []);
 
