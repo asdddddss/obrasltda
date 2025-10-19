@@ -286,7 +286,8 @@ export const addMusicTrack = async (file: File): Promise<MusicTrack> => {
         title: file.name.replace(/\.mp3$/i, ''),
         artist: 'Desconhecido',
         url: URL.createObjectURL(file),
-        duration: 0, 
+        duration: 0,
+        hotcues: [], 
     };
     musicTracks.push(newTrack);
     return newTrack;

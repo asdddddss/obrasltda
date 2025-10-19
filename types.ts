@@ -1,3 +1,4 @@
+
 export enum Role {
   ADMIN_MASTER = 'ADMIN_MASTER',
   ADMIN = 'ADMIN',
@@ -64,4 +65,14 @@ export interface MusicTrack {
   artist: string;
   url: string;
   duration: number; // in seconds
+  bpm?: number;
+  hotcues: { id: number; time: number }[];
+}
+
+export interface MixerControls {
+  low: number;
+  mid: number;
+  high: number;
+  filter: number;
+  volume: number;
 }

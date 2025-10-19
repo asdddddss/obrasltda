@@ -175,4 +175,21 @@ export let events: EventItem[] = [
     { id: 'event-2026-12-27', date: '2026-12-27T22:00:00Z', title: 'Universo Paralelo', location: 'Bahia', albumId: 'album-event-2026-12-27' },
 ];
 
-export let musicTracks: MusicTrack[] = [];
+export let musicTracks: MusicTrack[] = [
+  {
+    id: 'music-1',
+    title: 'VINTAGE CULTURE',
+    artist: 'CULTURFM',
+    url: 'https://storage.googleapis.com/aai-web-samples/samples/ocean.mp3',
+    duration: 814,
+    hotcues: [],
+  },
+  {
+    id: 'music-2',
+    title: 'RICH',
+    artist: 'NIGO',
+    url: 'https://storage.googleapis.com/aai-web-samples/samples/rich.mp3',
+    duration: 153,
+    hotcues: [],
+  },
+];

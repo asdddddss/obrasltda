@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MusicTrack, Role } from '../types';
+import { MusicTrack, Role, MixerControls } from '../types';
 import { getMusicTracks, addMusicTrack, deleteMusicTrack } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import DJPlayer from '../components/DJPlayer';
+import Mixer from '../components/Mixer';
 import { CloudArrowUpIcon, TrashIcon } from '../components/icons/Icons';
+
+const initialMixerControls: MixerControls = {
+  low: 0,
+  mid: 0,
+  high: 0,
+  filter: 0,
+  volume: 1,
+};
 
 const MusicPage: React.FC = () => {
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
@@ -14,39 +23,60 @@ const MusicPage: React.FC = () => {
   // DJ Deck State
   const [trackA, setTrackA] = useState<MusicTrack | null>(null);
   const [trackB, setTrackB] = useState<MusicTrack | null>(null);
-  const [crossfader, setCrossfader] = useState(0); // -1 for A, 1 for B, 0 for center
+  const [bpmA, setBpmA] = useState<number | null>(null);
+  const [bpmB, setBpmB] = useState<number | null>(null);
+
+  // Mixer State
+  const [controlsA, setControlsA] = useState<MixerControls>(initialMixerControls);
+  const [controlsB, setControlsB] = useState<MixerControls>(initialMixerControls);
+  const [vuLevelA, setVuLevelA] = useState(0);
+  const [vuLevelB, setVuLevelB] = useState(0);
+  const [crossfader, setCrossfader] = useState(0);
 
   // Web Audio API refs
   const audioContextRef = useRef<AudioContext | null>(null);
-  const deckAGainRef = useRef<GainNode | null>(null);
-  const deckBGainRef = useRef<GainNode | null>(null);
+  const channelAGainRef = useRef<GainNode | null>(null);
+  const channelBGainRef = useRef<GainNode | null>(null);
+  const crossfaderAGainRef = useRef<GainNode | null>(null);
+  const crossfaderBGainRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
-    // Initialize single AudioContext for the entire component
     if (!audioContextRef.current) {
         const context = new (window.AudioContext || (window as any).webkitAudioContext)();
         audioContextRef.current = context;
 
+        // Channel Fader Nodes
         const gainA = context.createGain();
-        gainA.connect(context.destination);
-        deckAGainRef.current = gainA;
-
+        channelAGainRef.current = gainA;
         const gainB = context.createGain();
-        gainB.connect(context.destination);
-        deckBGainRef.current = gainB;
+        channelBGainRef.current = gainB;
+
+        // Crossfader Nodes
+        const cfGainA = context.createGain();
+        crossfaderAGainRef.current = cfGainA;
+        const cfGainB = context.createGain();
+        crossfaderBGainRef.current = cfGainB;
+
+        // Routing
+        gainA.connect(cfGainA).connect(context.destination);
+        gainB.connect(cfGainB).connect(context.destination);
     }
-    // No cleanup needed, context persists for component lifetime
   }, []);
 
   useEffect(() => {
+    // Channel Fader logic
+    if (channelAGainRef.current) channelAGainRef.current.gain.value = controlsA.volume;
+    if (channelBGainRef.current) channelBGainRef.current.gain.value = controlsB.volume;
+  }, [controlsA.volume, controlsB.volume]);
+
+  useEffect(() => {
     // Crossfader logic (Equal-power crossfade)
-    if (deckAGainRef.current && deckBGainRef.current) {
+    if (crossfaderAGainRef.current && crossfaderBGainRef.current) {
       const value = (crossfader + 1) / 2; // Map from [-1, 1] to [0, 1]
-      deckAGainRef.current.gain.value = Math.cos(value * 0.5 * Math.PI);
-      deckBGainRef.current.gain.value = Math.cos((1 - value) * 0.5 * Math.PI);
+      crossfaderAGainRef.current.gain.value = Math.cos(value * 0.5 * Math.PI);
+      crossfaderBGainRef.current.gain.value = Math.cos((1 - value) * 0.5 * Math.PI);
     }
   }, [crossfader]);
-
 
   const fetchTracks = useCallback(async () => {
     setLoading(true);
@@ -66,7 +96,7 @@ const MusicPage: React.FC = () => {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'audio/mpeg') {
+    if (file && (file.type === 'audio/mpeg' || file.type === 'audio/mp3')) {
       setIsUploading(true);
       try {
         await addMusicTrack(file);
@@ -84,10 +114,15 @@ const MusicPage: React.FC = () => {
   };
   
   const loadTrack = (track: MusicTrack, deck: 'A' | 'B') => {
+    const trackWithCues = { ...track, hotcues: track.hotcues || [] };
     if (deck === 'A') {
-      setTrackA(track);
+      setTrackA(trackWithCues);
+      setBpmA(null);
+      setControlsA(initialMixerControls);
     } else {
-      setTrackB(track);
+      setTrackB(trackWithCues);
+      setBpmB(null);
+      setControlsB(initialMixerControls);
     }
   };
 
@@ -112,43 +147,63 @@ const MusicPage: React.FC = () => {
       )
   }
 
-  // DJ Panel View
   return (
     <div className="py-8">
       <h1 className="text-3xl font-bold mb-2">Painel do DJ</h1>
       <p className="text-gray-500 mb-6">Controle os dois decks e mixe as músicas para todos.</p>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
-        {trackA && audioContextRef.current && deckAGainRef.current ? (
-          <DJPlayer key={trackA.id} track={trackA} onStop={() => setTrackA(null)} deckId="A" audioContext={audioContextRef.current} destinationNode={deckAGainRef.current} />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-4 items-start">
+        {/* Deck A */}
+        {audioContextRef.current && channelAGainRef.current ? (
+          <DJPlayer 
+            track={trackA} 
+            onStop={() => setTrackA(null)} 
+            deckId="A" 
+            audioContext={audioContextRef.current} 
+            destinationNode={channelAGainRef.current} 
+            onBpmDetected={setBpmA} 
+            targetBpm={bpmB}
+            mixerControls={controlsA}
+            onVuLevelUpdate={setVuLevelA}
+          />
         ) : (
-          <div className="p-8 text-center bg-gray-100 dark:bg-gray-800 rounded-lg h-full flex flex-col justify-center">
+          <div className="p-8 text-center bg-gray-100 dark:bg-gray-800 rounded-lg h-full flex flex-col justify-center min-h-[400px]">
             <p className="font-bold text-lg">DECK A</p>
             <p className="text-sm text-gray-500">Carregue uma música da biblioteca.</p>
           </div>
         )}
-        {trackB && audioContextRef.current && deckBGainRef.current ? (
-          <DJPlayer key={trackB.id} track={trackB} onStop={() => setTrackB(null)} deckId="B" audioContext={audioContextRef.current} destinationNode={deckBGainRef.current} />
+
+        {/* Mixer */}
+        <Mixer
+          controlsA={controlsA}
+          controlsB={controlsB}
+          vuLevelA={vuLevelA}
+          vuLevelB={vuLevelB}
+          crossfader={crossfader}
+          onControlsAChange={(updates) => setControlsA(c => ({...c, ...updates}))}
+          onControlsBChange={(updates) => setControlsB(c => ({...c, ...updates}))}
+          onCrossfaderChange={setCrossfader}
+        />
+
+        {/* Deck B */}
+        {audioContextRef.current && channelBGainRef.current ? (
+          <DJPlayer 
+            track={trackB} 
+            onStop={() => setTrackB(null)} 
+            deckId="B" 
+            audioContext={audioContextRef.current} 
+            destinationNode={channelBGainRef.current} 
+            onBpmDetected={setBpmB} 
+            targetBpm={bpmA}
+            mixerControls={controlsB}
+            onVuLevelUpdate={setVuLevelB}
+          />
         ) : (
-          <div className="p-8 text-center bg-gray-100 dark:bg-gray-800 rounded-lg h-full flex flex-col justify-center">
+          <div className="p-8 text-center bg-gray-100 dark:bg-gray-800 rounded-lg h-full flex flex-col justify-center min-h-[400px]">
             <p className="font-bold text-lg">DECK B</p>
             <p className="text-sm text-gray-500">Carregue uma música da biblioteca.</p>
           </div>
         )}
-      </div>
-      
-      <div className="my-6 px-4 py-2 bg-gray-200 dark:bg-gray-900 rounded-lg flex items-center justify-center gap-4">
-          <span className="font-bold text-lg">A</span>
-          <input 
-            type="range"
-            min="-1"
-            max="1"
-            step="0.01"
-            value={crossfader}
-            onChange={(e) => setCrossfader(parseFloat(e.target.value))}
-            className="w-full max-w-sm h-2 bg-gray-300 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
-          />
-          <span className="font-bold text-lg">B</span>
       </div>
 
       <div className="mt-8">
