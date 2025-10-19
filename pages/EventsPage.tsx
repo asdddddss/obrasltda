@@ -1,31 +1,39 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getEvents, getAllVisibleAlbums } from '../services/api';
-import { EventItem, Role, Album } from '../types';
+import { getEvents, getAllVisibleAlbums, getMockUsers } from '../services/api';
+import { EventItem, Role, Album, User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import EventEditorModal from '../components/EventEditorModal';
-import { PlusIcon } from '../components/icons/Icons';
+import SelectionModal from '../components/SelectionModal';
+import { PlusIcon, FunnelIcon, ChevronDownIcon, ChevronUpIcon } from '../components/icons/Icons';
 
 type TimelineItem = (EventItem & { itemType: 'event'; date: string }) | (Album & { itemType: 'album'; date: string });
 
 const EventsPage: React.FC = () => {
     const [events, setEvents] = useState<EventItem[]>([]);
-    const [albums, setAlbums] = useState<Album[]>([]);
+    const [allAlbums, setAllAlbums] = useState<Album[]>([]); // All albums for filtering logic
+    const [users, setUsers] = useState<User[]>([]); // Users for filtering
     const [showAllAlbums, setShowAllAlbums] = useState(false);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
 
+    // Filter state
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
+    const [isPeopleModalOpen, setIsPeopleModalOpen] = useState(false);
+
     const fetchData = async () => {
         setLoading(true);
-        const [eventData, albumData] = await Promise.all([
+        const [eventData, albumData, userData] = await Promise.all([
             getEvents(),
-            getAllVisibleAlbums(user)
+            getAllVisibleAlbums(user),
+            getMockUsers()
         ]);
         setEvents(eventData);
-        setAlbums(albumData.filter(a => !a.isEventAlbum)); // Exclude albums already linked to events
+        setAllAlbums(albumData);
+        setUsers(userData);
         setLoading(false);
     };
 
@@ -34,13 +42,29 @@ const EventsPage: React.FC = () => {
     }, [user]);
 
     const timelineItems = useMemo((): TimelineItem[] => {
-        const eventItems: TimelineItem[] = events.map(e => ({ ...e, itemType: 'event' }));
+        let filteredEvents = events;
+        let displayableAlbums = allAlbums.filter(a => !a.isEventAlbum);
+
+        if (selectedPeople.length > 0) {
+            const peopleSet = new Set(selectedPeople);
+            
+            const relevantAlbumIds = new Set(
+                allAlbums
+                    .filter(album => album.taggedUsers.some(taggedUserId => peopleSet.has(taggedUserId)))
+                    .map(a => a.id)
+            );
+
+            filteredEvents = events.filter(e => relevantAlbumIds.has(e.albumId));
+            displayableAlbums = displayableAlbums.filter(a => relevantAlbumIds.has(a.id));
+        }
+
+        const eventItems: TimelineItem[] = filteredEvents.map(e => ({ ...e, itemType: 'event' }));
         if (showAllAlbums) {
-            const albumItems: TimelineItem[] = albums.map(a => ({ ...a, itemType: 'album', date: a.createdAt }));
+            const albumItems: TimelineItem[] = displayableAlbums.map(a => ({ ...a, itemType: 'album', date: a.createdAt }));
             return [...eventItems, ...albumItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         }
         return eventItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [events, albums, showAllAlbums]);
+    }, [events, allAlbums, showAllAlbums, selectedPeople]);
 
     const itemsByYear = useMemo(() => {
         return timelineItems.reduce((acc, item) => {
@@ -91,9 +115,17 @@ const EventsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <h1 className="text-3xl font-bold">Eventos e Álbuns</h1>
                 <div className="flex items-center space-x-4">
+                    <button
+                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                        className="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                    >
+                        <FunnelIcon className="h-4 w-4" />
+                        <span>Filtros</span>
+                        {isFilterOpen ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                    </button>
                     <label className="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" checked={showAllAlbums} onChange={() => setShowAllAlbums(!showAllAlbums)} className="h-4 w-4 rounded text-brand-600 border-gray-300 focus:ring-brand-500" />
-                        <span className="text-sm font-medium">Exibir todos os álbuns</span>
+                        <span className="text-sm font-medium">Exibir álbuns</span>
                     </label>
                     {isAdmin && (
                         <button 
@@ -107,6 +139,30 @@ const EventsPage: React.FC = () => {
                 </div>
             </div>
             
+             {isFilterOpen && (
+                <div className="p-4 bg-white dark:bg-gray-900 rounded-lg shadow-md mb-6">
+                    <button 
+                        onClick={() => setIsPeopleModalOpen(true)}
+                        className="w-full text-left p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                        <span className="font-semibold">Pessoas</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                            {selectedPeople.length > 0 ? `${selectedPeople.length} selecionada(s)` : 'Todas'}
+                        </span>
+                    </button>
+                    {selectedPeople.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-right">
+                            <button
+                                onClick={() => setSelectedPeople([])}
+                                className="text-sm text-brand-500 hover:underline"
+                            >
+                                Limpar Filtro
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="space-y-10">
                 {Object.keys(itemsByYear).sort((a,b) => Number(b) - Number(a)).map(year => (
                     <div key={year}>
@@ -165,6 +221,14 @@ const EventsPage: React.FC = () => {
                     onSaveComplete={handleSaveComplete}
                 />
             )}
+            <SelectionModal
+                isOpen={isPeopleModalOpen}
+                onClose={() => setIsPeopleModalOpen(false)}
+                title="Filtrar por Pessoas"
+                items={users.filter(u => u.status === 'APPROVED').map(u => ({ id: u.id, name: u.name, avatar: u.avatar }))}
+                selectedIds={selectedPeople}
+                onApply={setSelectedPeople}
+            />
         </div>
     );
 };

@@ -8,6 +8,7 @@ import { getMediaForFeed, getStories, getMockUsers, getAllVisibleAlbums } from '
 import StoryReel from '../components/StoryReel';
 import StoryViewer from '../components/StoryViewer';
 import PhotoModal from '../components/PhotoModal';
+import SelectionModal from '../components/SelectionModal';
 import { FunnelIcon, ChevronDownIcon, ChevronUpIcon } from '../components/icons/Icons';
 
 interface HomePageProps {
@@ -33,6 +34,10 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
   const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
+
+  // Modal state for filters
+  const [isPeopleModalOpen, setIsPeopleModalOpen] = useState(false);
+  const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
 
 
   useEffect(() => {
@@ -65,24 +70,12 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
     }
 
     return media.filter(item => {
-      const matchPerson = selectedPeople.length === 0 || selectedPeople.includes(item.uploadedBy);
+      const matchPerson = selectedPeople.length === 0 || selectedPeople.includes(item.uploadedBy) || item.taggedUsers?.some(id => selectedPeople.includes(id));
       const matchAlbum = selectedAlbums.length === 0 || (item.albumId && selectedAlbums.includes(item.albumId));
       
       return matchPerson && matchAlbum;
     });
   }, [media, selectedPeople, selectedAlbums]);
-
-  const handlePersonSelect = (userId: string) => {
-    setSelectedPeople(prev => 
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
-  };
-  
-  const handleAlbumSelect = (albumId: string) => {
-    setSelectedAlbums(prev =>
-      prev.includes(albumId) ? prev.filter(id => id !== albumId) : [...prev, albumId]
-    );
-  };
 
   const clearFilters = () => {
     setSelectedPeople([]);
@@ -163,41 +156,25 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
 
         {isFilterOpen && (
           <div className="p-4 bg-white dark:bg-gray-900 rounded-lg shadow-md mb-6">
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                {/* Pessoas Column */}
-                <div>
-                  <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">Pessoas</h3>
-                  <div className="space-y-2">
-                    {users.filter(u => u.status === 'APPROVED').map(user => (
-                      <label key={user.id} className="flex items-center space-x-3 cursor-pointer text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={selectedPeople.includes(user.id)}
-                          onChange={() => handlePersonSelect(user.id)}
-                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-900"
-                        />
-                        <span className="text-sm">{user.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                {/* Álbuns Column */}
-                <div>
-                   <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">Álbuns</h3>
-                   <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-                    {albums.map(album => (
-                      <label key={album.id} className="flex items-center space-x-3 cursor-pointer text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={selectedAlbums.includes(album.id)}
-                          onChange={() => handleAlbumSelect(album.id)}
-                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-900"
-                        />
-                        <span className="text-sm">{album.title}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setIsPeopleModalOpen(true)}
+                  className="w-full text-left p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <span className="font-semibold">Pessoas</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                    {selectedPeople.length > 0 ? `${selectedPeople.length} selecionada(s)` : 'Todas'}
+                  </span>
+                </button>
+                 <button 
+                  onClick={() => setIsAlbumModalOpen(true)}
+                  className="w-full text-left p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <span className="font-semibold">Álbuns</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                    {selectedAlbums.length > 0 ? `${selectedAlbums.length} selecionado(s)` : 'Todos'}
+                  </span>
+                </button>
              </div>
              {(selectedPeople.length > 0 || selectedAlbums.length > 0) && (
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-right">
@@ -270,6 +247,25 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
           onEditClick={currentUser?.id === selectedMediaItem.uploadedBy || (currentUser?.role && [Role.ADMIN, Role.ADMIN_MASTER].includes(currentUser.role)) ? () => handleEditClick(selectedMediaItem) : undefined}
         />
       )}
+
+      <SelectionModal
+        isOpen={isPeopleModalOpen}
+        onClose={() => setIsPeopleModalOpen(false)}
+        title="Filtrar por Pessoas"
+        items={users.filter(u => u.status === 'APPROVED').map(u => ({ id: u.id, name: u.name, avatar: u.avatar }))}
+        selectedIds={selectedPeople}
+        onApply={setSelectedPeople}
+      />
+
+      <SelectionModal
+        isOpen={isAlbumModalOpen}
+        onClose={() => setIsAlbumModalOpen(false)}
+        title="Filtrar por Álbuns"
+        items={albums.map(a => ({ id: a.id, name: a.title }))}
+        selectedIds={selectedAlbums}
+        onApply={setSelectedAlbums}
+      />
+
     </div>
   );
 };

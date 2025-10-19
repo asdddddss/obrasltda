@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { HomeIcon, CalendarDaysIcon, CakeIcon, UserIcon, PlusCircleIcon } from './icons/Icons';
+import { LayoutDashboardIcon, CalendarDaysIcon, CakeIcon, UserIcon, PlusCircleIcon } from './icons/Icons';
 
 interface BottomNavBarProps {
   onAddClick: () => void;
@@ -48,7 +48,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onAddClick }) => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex items-center justify-around z-50 lg:hidden shadow-[0_-2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]">
-      <NavItem to="/" icon={HomeIcon} />
+      <NavItem to="/" icon={LayoutDashboardIcon} />
       <NavItem to="/events" icon={CalendarDaysIcon} />
       
       {user ? (

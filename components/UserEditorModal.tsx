@@ -63,7 +63,7 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, currentUser, on
                 className={`${commonInputClass} disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-800`}
                 disabled={!canChangeRole}
             >
-              {Object.values(Role).map(r => (
+              {Object.values(Role).map((r: Role) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>

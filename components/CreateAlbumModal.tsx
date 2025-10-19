@@ -24,7 +24,6 @@ const CreateAlbumModal: React.FC<CreateAlbumModalProps> = ({ currentUser, onClos
     setError('');
     setIsCreating(true);
     try {
-      // Fix: Removed `visibleTo` property from the `createAlbum` call as it is not an expected property.
       const newAlbum = await createAlbum({ title, description, permission }, currentUser);
       onCreateComplete(newAlbum);
     } catch (err) {

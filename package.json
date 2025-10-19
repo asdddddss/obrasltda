@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.4",
-    "react-image-crop": "^11.0.5"
+    "react-dom": "^19.2.0",
+    "react-image-crop": "^11.0.10",
+    "wavesurfer.js": "^7.8.3",
+    "capacitor-plugin-background-mode": "^1.0.0",
+    "react-player": "^3.3.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

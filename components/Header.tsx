@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { UserIcon, SunIcon, MoonIcon, CogIcon, ArrowLeftOnRectangleIcon, MagnifyingGlassIcon } from './icons/Icons';
+import { UserIcon, SunIcon, MoonIcon, CogIcon, ArrowLeftOnRectangleIcon } from './icons/Icons';
 import { Role } from '../types';
 
 const Header: React.FC = () => {
@@ -12,20 +12,10 @@ const Header: React.FC = () => {
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  
   const handleLogout = () => {
     logout();
     setProfileDropdownOpen(false);
     navigate('/login');
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
   };
 
   useEffect(() => {
@@ -48,21 +38,7 @@ const Header: React.FC = () => {
           <Link to="/" className="text-2xl font-bold text-gray-900 dark:text-white lg:hidden">
             OBRAS LTDA
           </Link>
-          <div className="lg:w-0 lg:flex-1"></div>
-
-          {/* Search Bar (Desktop) */}
-          <div className="hidden sm:flex items-center">
-            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg px-3">
-              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Buscar..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent py-2 px-2 text-sm focus:outline-none w-full"
-              />
-            </form>
-          </div>
+          <div className="flex-1"></div>
 
           {/* Actions */}
           <div className="flex items-center space-x-4">

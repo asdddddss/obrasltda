@@ -9,7 +9,6 @@ interface StoryReelProps {
 
 const StoryReel: React.FC<StoryReelProps> = ({ storiesByUser, users, onUserClick }) => {
   // Create a map for quick user lookup
-  // FIX: Explicitly type the Map to ensure correct type inference for `user`.
   const userMap = new Map<string, User>(users.map(u => [u.id, u]));
   const userIdsWithStories = Object.keys(storiesByUser);
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { User, Role, MediaItem } from '../types';
 import { getMockUsers, updateUser, deleteUser } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { CheckBadgeIcon, UserGroupIcon, UserIcon, TrashIcon, PhotoIcon } from '../components/icons/Icons';
+import { PencilSquareIcon } from '../components/icons/Icons';
 import UserEditorModal from '../components/UserEditorModal';
 import ContentManagementTab from '../components/admin/ContentManagementTab';
 
@@ -78,14 +78,14 @@ const AdminPage: React.FC<AdminPageProps> = ({ setEditingMediaItem }) => {
             <h1 className="text-3xl font-bold mb-8">Painel Administrativo</h1>
             
             <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-                <nav className="-mb-px flex space-x-6">
-                    <button onClick={() => setActiveTab('users')} className={`py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'users' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-600'}`}>
+                <nav className="-mb-px flex gap-x-4 sm:gap-x-6 overflow-x-auto pb-2 scrollbar-hide">
+                    <button onClick={() => setActiveTab('users')} className={`py-3 px-2 whitespace-nowrap border-b-2 font-medium text-sm ${activeTab === 'users' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-600'}`}>
                         Gerenciar Usuários
                     </button>
-                    <button onClick={() => setActiveTab('approvals')} className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'approvals' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-600'}`}>
+                    <button onClick={() => setActiveTab('approvals')} className={`py-3 px-2 whitespace-nowrap border-b-2 font-medium text-sm flex items-center ${activeTab === 'approvals' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-600'}`}>
                         Aprovações {pendingUsers.length > 0 && <span className="ml-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full">{pendingUsers.length}</span>}
                     </button>
-                    <button onClick={() => setActiveTab('content')} className={`py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'content' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-600'}`}>
+                    <button onClick={() => setActiveTab('content')} className={`py-3 px-2 whitespace-nowrap border-b-2 font-medium text-sm ${activeTab === 'content' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-600'}`}>
                         Gerenciar Conteúdo
                     </button>
                 </nav>
@@ -94,27 +94,51 @@ const AdminPage: React.FC<AdminPageProps> = ({ setEditingMediaItem }) => {
             {(activeTab === 'users' || activeTab === 'approvals') && loading && <p>Carregando...</p>}
 
             {activeTab === 'users' && !loading && (
-                <div className="bg-white dark:bg-gray-900 shadow-md rounded-lg overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                            <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Usuário</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cargo</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Aniversário</th>
-                                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Editar</span></th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                            {approvedUsers.map(user => (
-                                <tr key={user.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center"><div className="flex-shrink-0 h-10 w-10"><img className="h-10 w-10 rounded-full" src={user.avatar} alt="" /></div><div className="ml-4"><div className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</div><div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div></div></div></td>
-                                    <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColors[user.role]}`}>{user.role}</span></td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.birthdate ? new Date(user.birthdate).toLocaleDateString() : 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><button onClick={() => openEditor(user)} className="text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-200">Editar</button></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                 <div>
+                    {/* Desktop Header */}
+                    <div className="hidden lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)] gap-4 px-6 py-3 bg-gray-50 dark:bg-gray-800 rounded-t-lg">
+                        <div className="text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Usuário</div>
+                        <div className="text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cargo</div>
+                        <div className="text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Aniversário</div>
+                        <div className="text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ações</div>
+                    </div>
+
+                    {/* User List */}
+                    <div className="space-y-4 lg:space-y-0">
+                        {approvedUsers.map(user => (
+                            <div key={user.id} className="p-4 bg-white dark:bg-gray-900 shadow-md rounded-lg lg:shadow-none lg:rounded-none lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-4 lg:items-center lg:px-6 lg:py-4 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
+                                
+                                {/* Cell 1: User Info */}
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0 h-10 w-10"><img className="h-10 w-10 rounded-full" src={user.avatar} alt={user.name} /></div>
+                                    <div className="ml-4">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</div>
+                                        <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
+                                    </div>
+                                </div>
+
+                                {/* Cell 2: Role */}
+                                <div className="mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-none border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm">
+                                    <span className="font-bold text-gray-700 dark:text-gray-300 lg:hidden">Cargo</span>
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColors[user.role]}`}>{user.role}</span>
+                                </div>
+                                
+                                {/* Cell 3: Birthday */}
+                                <div className="mt-2 lg:mt-0 flex justify-between items-center text-sm">
+                                    <span className="font-bold text-gray-700 dark:text-gray-300 lg:hidden">Aniversário</span>
+                                    <span className="text-gray-500 dark:text-gray-400">{user.birthdate ? new Date(user.birthdate).toLocaleDateString() : 'N/A'}</span>
+                                </div>
+                                
+                                {/* Cell 4: Actions */}
+                                <div className="mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-none border-gray-200 dark:border-gray-700 lg:text-right">
+                                    <button onClick={() => openEditor(user)} className="w-full lg:w-auto text-center justify-center flex items-center gap-2 p-2 rounded-md bg-gray-100 dark:bg-gray-800 lg:bg-transparent lg:dark:bg-transparent text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-200 font-medium text-sm">
+                                        <PencilSquareIcon className="h-5 w-5 lg:hidden" />
+                                        <span>Editar</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
             {activeTab === 'approvals' && !loading &&(

@@ -1,3 +1,5 @@
+
+
 export enum Role {
   ADMIN_MASTER = 'ADMIN_MASTER',
   ADMIN = 'ADMIN',
@@ -8,37 +10,37 @@ export enum Role {
 export interface User {
   id: string;
   name: string;
-  email?: string;
+  email: string;
   avatar: string;
   role: Role;
   birthdate?: string;
-  status: 'PENDING' | 'APPROVED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface MediaItem {
-  id:string;
+  id: string;
   albumId?: string;
   url: string;
   type: 'image' | 'video';
   description: string;
-  uploadedBy: string; // userId
+  uploadedBy: string;
   createdAt: string;
   filter?: string;
-  taggedUsers?: string[];
+  taggedUsers: string[];
 }
 
 export interface Album {
   id: string;
   title: string;
+  isEventAlbum?: boolean;
   description: string;
   coverPhoto: string;
-  createdBy: string; // userId
+  createdBy: string;
   createdAt: string;
   permission: Role;
   visibleTo: string[];
   taggedUsers: string[];
   photos: MediaItem[];
-  isEventAlbum?: boolean;
 }
 
 export interface Story {
@@ -51,12 +53,28 @@ export interface Story {
 }
 
 export interface EventItem {
-  id: string;
-  date: string; // ISO Date String
-  title: string;
-  location: string;
-  albumId: string;
+    id: string;
+    date: string;
+    title: string;
+    location: string;
+    albumId: string;
 }
 
-// Keep Photo as an alias for backward compatibility if needed, but we'll primarily use MediaItem
-export type Photo = MediaItem;
+export interface MusicTrack {
+  id: string;
+  title: string;
+  artist: string;
+  url: string;
+  duration: number; // in seconds
+}
+
+export interface GlobalMusicState {
+  currentTrack: MusicTrack | null;
+  isPlaying: boolean;
+}
+
+// Add MusicPlayerEventDetail for communication between DJPlayer and GlobalMusicPlayer
+export interface MusicPlayerEventDetail {
+  action: 'play' | 'pause' | 'setTrack' | 'stop';
+  track?: MusicTrack;
+}
