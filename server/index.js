@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -34,13 +33,17 @@ const S3_ENDPOINT = process.env.S3_ENDPOINT; // optional custom endpoint (Spaces
 const USE_S3 = !!(S3_BUCKET && S3_REGION);
 
 let upload;
+let uploadBufferToS3 = null;
 if (USE_S3) {
+  // Dynamically import AWS SDK only when S3 is enabled to avoid startup errors
+  // in environments where the package is not installed (e.g., Railway without S3 configured).
+  const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
   const s3Client = new S3Client({ region: S3_REGION, endpoint: S3_ENDPOINT });
   const memoryStorage = multer.memoryStorage();
   upload = multer({ storage: memoryStorage });
 
   // helper to upload a buffer to S3
-  async function uploadBufferToS3(buffer, originalName, mimeType) {
+  uploadBufferToS3 = async (buffer, originalName, mimeType) => {
     const safeName = `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9.\-\_]/g, '_')}`;
     const key = `${safeName}`;
     const put = new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: buffer, ContentType: mimeType });
@@ -53,7 +56,7 @@ if (USE_S3) {
       url = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key}`;
     }
     return { filename: safeName, url };
-  }
+  };
 } else {
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {
