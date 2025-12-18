@@ -22,6 +22,9 @@
     "react-router-dom": "^7.9.4",
     "wavesurfer.js": "^7.8.3"
   },
+  "optionalDependencies": {
+    "patch-package": "*"
+  },
   "devDependencies": {
     "@types/node": "^22.19.0",
     "@vitejs/plugin-react": "^5.0.0",
