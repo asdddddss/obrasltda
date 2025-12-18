@@ -78,23 +78,46 @@ app.use('/uploads', express.static(DATA_DIR));
 // Healthcheck for platforms (Railway etc.) to verify the process is up
 app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
-app.post('/api/upload/media', upload.array('files'), async (req, res) => {
+// Accept both 'files' (array) and 'file' (single) field names to be forgiving
+app.post('/api/upload/media', upload.fields([{ name: 'files' }, { name: 'file', maxCount: 1 }]), async (req, res) => {
   try {
+    // Helpful debug logging to trace upload attempts and common failures
+    console.log('Upload media request headers:', {
+      'content-type': req.headers['content-type'],
+      'content-length': req.headers['content-length']
+    });
+
+    // Normalize files into a single array regardless of whether client used 'files' or 'file'
+    let incomingFiles = [];
+    if (req.files) {
+      // req.files when using upload.fields is an object with arrays
+      if (Array.isArray(req.files.files)) incomingFiles.push(...req.files.files);
+      if (Array.isArray(req.files.file)) incomingFiles.push(...req.files.file);
+    }
+    // multer may also set req.file for single-file middleware in some cases
+    if (!incomingFiles.length && req.file) incomingFiles.push(req.file);
+
+    if (!incomingFiles.length) {
+      console.warn('Upload media: no files received in request');
+      return res.status(400).json({ error: 'No files received' });
+    }
+
     let files = [];
     if (USE_S3) {
-      // req.files contains buffers
       const uploaded = [];
-      for (const f of (req.files || [])) {
-        const result = await uploadBufferToS3(f.buffer, f.originalname, f.mimetype);
-        const type = f.mimetype.startsWith('video/') ? 'video' : (f.mimetype.startsWith('image/') ? 'image' : 'other');
+      for (const f of incomingFiles) {
+        const result = await uploadBufferToS3(f.buffer, f.originalname || f.originalName || 'file', f.mimetype || 'application/octet-stream');
+        const type = (f.mimetype || '').startsWith('video/') ? 'video' : ((f.mimetype || '').startsWith('image/') ? 'image' : 'other');
         uploaded.push({ filename: result.filename, url: result.url, type });
       }
       files = uploaded;
     } else {
-      files = (req.files || []).map(f => {
-        const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
-        const type = f.mimetype.startsWith('video/') ? 'video' : (f.mimetype.startsWith('image/') ? 'image' : 'other');
-        return { filename: f.filename, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type };
+      files = incomingFiles.map(f => {
+        // f.path is available for diskStorage; for memoryStorage it will be undefined
+        const savedPath = f.path || path.join(PHOTOS_DIR, f.filename || '');
+        const type = (f.mimetype || '').startsWith('video/') ? 'video' : ((f.mimetype || '').startsWith('image/') ? 'image' : 'other');
+        const rel = f.path ? path.relative(process.cwd(), f.path).split(path.sep).join('/') : path.relative(DATA_DIR, savedPath).split(path.sep).join('/');
+        return { filename: f.filename || (f.originalname || 'unknown'), url: `/uploads/${rel}`, type };
       });
     }
 
@@ -112,7 +135,8 @@ app.post('/api/upload/media', upload.array('files'), async (req, res) => {
     res.json({ files });
   } catch (err) {
     console.error('Upload failed', err);
-    res.status(500).json({ error: 'Upload failed' });
+    // Provide more info in the response to help debugging from the client
+    res.status(500).json({ error: 'Upload failed', details: err && err.message ? err.message : undefined });
   }
 });
 
